@@ -158,5 +158,6 @@ Nacos通过集中式存储来保证数据的持久化，同时也为Nacos集群�
 
 - 3.http://www.nacostest.com:port/openAPI 挂载虚拟IP+域名模式：
     为虚拟ip绑定一个域名，当Nacos集群迁移时，客户端配置无需修改。
+    (https://github.com/kanateSong/alibaba-nacos/blob/master/png/挂载虚拟IP+域名.png)
 
 
