@@ -1,0 +1,25 @@
+# 请使用9060端口
+
+spring:
+  application:
+    name: nacos-config-share
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+      config:
+        server-addr: 127.0.0.1:8848
+        prefix: ${spring.application.name}
+        file-extension: yml
+        # 通过shared-dataids属性来指定要读取共享配置文件的DataID,多个文件用,分隔
+        shared-dataids: shareconfig1.yml,shareconfig2.yml
+        # 使用refreshable-dataids指定共享配置文件支持自动刷新
+        refreshable-dataids: shareconfig1,shareconfig2.yml
+        # 自定义指定需要加载的配置DataID、Group以及是否自动刷新
+        ext-config:
+          - data-id: shareConfig3.yml
+            group: SHARE3_GROUP
+            refresh: true
+          - data-id: shareConfig4.yml
+            group: SHARE4_GROUP
+            refresh: true

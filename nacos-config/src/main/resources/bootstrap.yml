@@ -1,0 +1,17 @@
+# 请使用9030 9040 9050端口
+
+spring:
+  application:
+    name: nacos-config
+  cloud:
+    nacos:
+      discovery:
+        # 指定注册中心的地址，如果你不需要注册该服务，也可以去掉该项，并删除discovery依赖
+        server-addr: 127.0.0.1:8848
+      config:
+        # 指定配置中心的地址
+        server-addr: 127.0.0.1:8848
+        # 指定配置中心中配置文件的格式
+        file-extension: yml
+        #group: DEV_GROUP
+        #namespace: bf386f19-8e80-4272-a291-0e00f601a242
