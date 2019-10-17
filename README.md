@@ -1,12 +1,16 @@
 # alibaba-nacos
+下载地址：https://github.com/alibaba/nacos
+官方文档：https://nacos.io/zh-cn/docs/what-is-nacos.html
 
-启动nacos-server（bin目录下直接双击执行startup.cmd文件）
+安装和启动nacos-server（bin目录下直接双击执行startup.cmd文件）
 访问：http://127.0.0.1:8848/nacos/index.html ，默认的账号密码为nacos/nacos
 
+Nacos 能够帮助我们发现、配置和管理微服务。其提供了一组简单易用的特性集，帮助您快速实现动态服务发现、服务配置、服务元数据及流量管理。
+
 ## 1.服务的生产者
-
+nacos-provide项目
 ## 2.服务的消费者
-
+nacos-consumer项目
 ## 3.配置文件
 
 Data ID：它的命名规则为：${prefix}-${spring.profile.active}.${file-extension}
@@ -131,6 +135,7 @@ ext-config方式：
 修改Nacos-server的配置文件。Nacos-server其实就是一个Java工程或者说是一个Springboot项目，他的配置文件在conf目录下，名为 application.properties，在文件底部添加数据源配置：
 
 ```properties
+# 修改数据库配置
 spring.datasource.platform=mysql
 
 db.num=1
@@ -146,7 +151,7 @@ Nacos通过集中式存储来保证数据的持久化，同时也为Nacos集群�
 
 ## 7.Nacos集群部署和遇到的问题
 
-### 1) Nacos文档中提供了三种集群部署方案
+###  Nacos文档中提供了三种集群部署方案
 
 - 1.http://ip1:port/openAPI 直连ip模式：
     ip+端口进行部署，客户端直接连接Nacos的ip
@@ -158,6 +163,165 @@ Nacos通过集中式存储来保证数据的持久化，同时也为Nacos集群�
 
 - 3.http://www.nacostest.com:port/openAPI 挂载虚拟IP+域名模式：
     为虚拟ip绑定一个域名，当Nacos集群迁移时，客户端配置无需修改。
-    (https://github.com/kanateSong/alibaba-nacos/blob/master/png/挂载虚拟IP+域名.png)
+    (https://github.com/kanateSong/alibaba-nacos/blob/master/png/vip.png)
+    
+### 本文以第一种ip+端口的方式为大家介绍集群部署方式
 
+当然ip+端口也有多种部署方式
+
+- 1ip+n端口+Nginx：普通玩家部署方式，没有过多服务器，单台服务器启动多个nacos实例，仅适合测试使用
+
+- nip+n端口+Nginx：RMB玩家部署方式，服务器资源充足，组建完美集群，实现更好的容灾与隔离
+
+无论怎么部署，部署方式都是一样的，这里我以1ip+3端口+Nginx的方式进行集群搭建
+
+### 1.修改配置
+
+- 修改Nacos-server目录conf/下的application.properties文件，添加mysql数据源
+
+-  修改集群配置
+修改conf/下的cluster.conf.example文件，将其命名为cluster.conf 例：
+```
+# ip:port
+ip:8849
+ip:8850
+ip:8851
+```
+
+注：一定要记得将配置文件重命名为cluster.conf, 一定要使用实际的服务器ip，而非127.0.0.1，否则会出现问题
+
+- 修改启动脚本
+我们要在单台服务器上启动多个Nacos实例，要保证三个实例为不同的端口，这里我们可以修改启动脚本
+定位到export FUNCTION_MODE="all"这一行，修改脚本内容，使其支持以-p传入端口参数
+```
+# linux 修改startup.sh文件
+export MODE="cluster"
+export FUNCTION_MODE="all"
+# 新加
+export SERVER_PORT="8848"
+while getopts ":m:f:p:" opt
+do
+    case $opt in
+        m)
+            MODE=$OPTARG;;
+        f)
+            FUNCTION_MODE=$OPTARG;;
+        # 新加
+        p)
+            SERVER_PORT=$OPTARG;;
+        ?)
+        echo "Unknown parameter"
+        exit 1;;
+    esac
+done
+# 新加
+JAVA_OPT="${JAVA_OPT} -Dserver.port=${SERVER_PORT}"
+```
+
+```text
+# window 修改startup.sh文件
+
+set SERVER_PORT=8848
+
+set SERVER_PORT_INDEX=-1
+for里面
+if "%%a" == "-p" ( set /a SERVER_PORT_INDEX=!i!+1 )
+for里面
+if %SERVER_PORT_INDEX% == !i! ( set SERVER_PORT="%%a" )
+
+set "JAVA_OPT=%JAVA_OPT% -Dserver.port=%SERVER_PORT%"
+
+```
+
+相应的，修改shutdown脚本，使其可接收参数
+
+```
+# 新加内容
+PORT=$1
+if [ ! $PORT ]; then
+  echo "please select stop port!" >&2
+  exit 1
+fi
+
+# 添加PORT过滤
+pid=`ps ax | grep -i 'nacos.nacos' |grep java |grep ${PORT} | grep -v grep | awk '{print $1}'`
+
+# 后边省略...
+```
+
+### 2.启动Nacos
+
+```
+# linux
+bash startup.sh -p 8849
+bash startup.sh -p 8850
+bash startup.sh -p 8851
+
+#window
+startup.cmd -m a -p port
+```
+
+如果你的机器不能同时启动3个实例，检查是否内存不够了，可以适当调整JVM参数 
+
+调整启动脚本中JAVA_OPT="${JAVA_OPT} -server -Xms2g -Xmx2g -Xmn1g -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=320m中的-Xms -Xmx -Xmn
+
+启动成功后会打印如下一句话：
+
+nacos is starting，you can check the /usr/local/nacos/nacos/logs/start.out
+
+查看cmd可以看到上面3个的ip地址
+
+多节点的集群雏形已经搭建好了，可以试着访问Nacos后台,使用实际ip
+
+http://ip:8849/nacos/index.html
+http://ip:8850/nacos/index.html
+http://ip:8851/nacos/index.html
+
+访问到Nacos控制台可以看到集群节点共有三个，其中随机端口为leader
+
+### 3.配置Nginx
+
+完成上面的配置后，已经基本完成集群搭建的90%了。这里我们可以通过Nginx配置，为Nacos提供统一的入口，来实现一个简单的负载均衡
+
+```text
+upstream nacos-server {
+  server 127.0.0.1:8849;
+  server 127.0.0.1:8850;
+  server 127.0.0.1:8851;
+}
+
+server {
+  listen 8848;
+  server_name  localhost;
+  location /nacos/ {
+    proxy_pass http://nacos-server/nacos/;
+  }
+}
+```
+
+执行命令 sudo nginx启动nginx
+
+通过8848端口访问Nacos后台，此时Nginx会将请求分发至nacos-server下的地址中，这里默认的分发策略是线性轮询
+
+### 4.客户端测试
+- 修改项目nacos-config的配置,请使用实际ip
+```text
+spring:
+  application:
+    name: nacos-config
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ip:8848
+      config:
+        server-addr: ip:8848
+        prefix: ${spring.application.name}
+        file-extension: yml
+```
+注：主要是修改注册中心和配置中新的地址，记得替换成你的服务器地址哦
+
+- 启动前确保已经向Nacos中添加配置文件
+
+### 5.总结
+Nacos的集群部署基本就介绍完了，官方推荐的三种方式，他们的基本部署思路和方式都大同小异，只不过在高可用上有所不同，挑选你适合的方式动手搭建集群试试吧
 
